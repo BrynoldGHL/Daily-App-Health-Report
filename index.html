@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Platform Health – Daily Report Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="dashboard">
+    <header class="dashboard-header">
+      <div class="header-content">
+        <h1>Platform Health Summary</h1>
+        <div class="header-meta header-filters">
+          <label class="filter-group">
+            <span class="filter-label">Team</span>
+            <select id="filterTeam" class="filter-select" aria-label="Select team">
+              <option value="Revex">Revex</option>
+              <option value="Payments">Payments</option>
+              <option value="Identity">Identity</option>
+            </select>
+          </label>
+          <label class="filter-group">
+            <span class="filter-label">Sub Team</span>
+            <select id="filterSubTeam" class="filter-select" aria-label="Select sub team">
+              <option value="Communities">Communities</option>
+              <option value="Feed">Feed</option>
+              <option value="Moderation">Moderation</option>
+            </select>
+          </label>
+          <label class="filter-group">
+            <span class="filter-label">Week</span>
+            <select id="filterWeek" class="filter-select" aria-label="Select week">
+              <option value="30">30</option>
+              <option value="31">31</option>
+              <option value="32" selected>32</option>
+              <option value="33">33</option>
+            </select>
+          </label>
+          <div class="filter-group status-group">
+            <span class="filter-label">Overall</span>
+            <button type="button" id="btnOverallStatus" class="status-badge watch" aria-haspopup="dialog" aria-expanded="false" title="Click for breakdown">
+              <span id="overallStatusText">🟡 Watch</span>
+              <span class="status-chevron">▼</span>
+            </button>
+            <div id="statusBreakdown" class="status-breakdown" role="dialog" aria-label="Overall status breakdown" hidden>
+              <p class="breakdown-title">Why Watch?</p>
+              <ul id="statusBreakdownList"></ul>
+              <button type="button" class="breakdown-close" id="closeStatusBreakdown">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard-main">
+      <!-- Executive Snapshot -->
+      <section class="section executive-snapshot">
+        <h2>Executive Snapshot <span class="section-hint">(click a card for details)</span></h2>
+        <div class="metrics-grid snapshot-grid" id="snapshotGrid">
+          <button type="button" class="metric-card regression" data-metric="incidents" aria-label="Incidents – view details">
+            <span class="metric-icon">⚠️</span>
+            <span class="metric-label">Incidents</span>
+            <span class="metric-value" data-value>P0/P1 increased vs last week</span>
+            <span class="card-click-hint">View details →</span>
+          </button>
+          <button type="button" class="metric-card regression" data-metric="performance" aria-label="Performance – view details">
+            <span class="metric-icon">📈</span>
+            <span class="metric-label">Performance</span>
+            <span class="metric-value" data-value>API latency regressed (2 endpoints)</span>
+            <span class="card-click-hint">View details →</span>
+          </button>
+          <button type="button" class="metric-card stable" data-metric="frontend" aria-label="Frontend – view details">
+            <span class="metric-icon">🌐</span>
+            <span class="metric-label">Frontend</span>
+            <span class="metric-value" data-value>Core Web Vitals stable</span>
+            <span class="card-click-hint">View details →</span>
+          </button>
+          <button type="button" class="metric-card warning" data-metric="infrastructure" aria-label="Infrastructure – view details">
+            <span class="metric-icon">🖥️</span>
+            <span class="metric-label">Infrastructure</span>
+            <span class="metric-value" data-value>Memory pressure in 1 service</span>
+            <span class="card-click-hint">View details →</span>
+          </button>
+          <button type="button" class="metric-card regression" data-metric="cost" aria-label="Cost – view details">
+            <span class="metric-icon">💰</span>
+            <span class="metric-label">Cost</span>
+            <span class="metric-value" data-value>+8% WoW (Compute)</span>
+            <span class="card-click-hint">View details →</span>
+          </button>
+          <button type="button" class="metric-card critical" data-metric="testQuality" aria-label="Test Quality – view details">
+            <span class="metric-icon">🧪</span>
+            <span class="metric-label">Test Quality</span>
+            <span class="metric-value" data-value>1 P0 + 4 P1 failures</span>
+            <span class="card-click-hint">View details →</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Detail modal for snapshot cards -->
+      <div id="snapshotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+        <div class="modal-backdrop" id="modalBackdrop"></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 id="modalTitle" class="modal-title"></h2>
+            <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+          </div>
+          <div id="modalBody" class="modal-body"></div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <section class="section charts-section">
+        <h2>Key Metrics & Trends</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>API Latency (P95 ms)</h3>
+            <canvas id="latencyChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Weekly Cost ($)</h3>
+            <canvas id="costChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Incidents by Severity</h3>
+            <canvas id="incidentsChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>5xx Error Rate (%)</h3>
+            <canvas id="errorsChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Alert Volume</h3>
+            <canvas id="alertsChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Test Pass Rate (%)</h3>
+            <canvas id="testsChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Key Improvements & Regressions -->
+      <section class="section improvements-regressions">
+        <div class="two-col">
+          <div class="card improvements">
+            <h2>Key Improvements</h2>
+            <ul class="metric-list">
+              <li><span class="bullet green"></span>5xx error rate decreased by <strong>32%</strong></li>
+              <li><span class="bullet green"></span>Alert acknowledgement: <strong>9m → 6m</strong></li>
+              <li><span class="bullet green"></span>Test pass rate: <strong>98.4%</strong> (+1.2%)</li>
+              <li><span class="bullet green"></span>P2 integration tests stable</li>
+            </ul>
+          </div>
+          <div class="card regressions">
+            <h2>Key Regressions</h2>
+            <ul class="metric-list">
+              <li><span class="bullet red"></span>P95 latency /api/feed <strong>+24ms</strong></li>
+              <li><span class="bullet red"></span>Recurring alert: <strong>11×</strong> this week</li>
+              <li><span class="bullet red"></span>moderation-worker memory <strong>>85%</strong> p95</li>
+              <li><span class="bullet red"></span>P0 integration test failure (feed flows)</li>
+              <li><span class="bullet yellow"></span>P1 failures: moderation, async workflows</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Major Incidents Table -->
+      <section class="section">
+        <h2>Major Incidents / Outages</h2>
+        <div class="table-wrapper">
+          <table class="data-table incidents-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Severity</th>
+                <th>Service</th>
+                <th>Duration</th>
+                <th>Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="severity-p1">
+                <td>Aug 6</td>
+                <td><span class="severity-badge p1">P1</span></td>
+                <td>Feed Pipeline</td>
+                <td>18 min</td>
+                <td>Feed freshness delay</td>
+              </tr>
+              <tr class="severity-p1">
+                <td>Aug 8</td>
+                <td><span class="severity-badge p1">P1</span></td>
+                <td>Moderation API</td>
+                <td>23 min</td>
+                <td>Latency spike after rules rollout</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Incident Summary (Detailed) -->
+      <section class="section">
+        <h2>Incident Summary (WoW)</h2>
+        <div class="table-wrapper">
+          <table class="data-table metrics-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>This Week</th>
+                <th>Last Week</th>
+                <th>WoW</th>
+                <th>Interpretation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>P0 Incidents</td><td>0</td><td>0</td><td>—</td><td>No critical outages</td></tr>
+              <tr class="regression-row"><td>P1 Incidents</td><td>2</td><td>1</td><td>+1</td><td>Moderate reliability regression</td></tr>
+              <tr class="improvement-row"><td>MTTA</td><td>6m 12s</td><td>9m 01s</td><td>↓</td><td>Faster on-call response</td></tr>
+              <tr class="regression-row"><td>MTTR</td><td>21m</td><td>17m</td><td>↑</td><td>Resolution took longer</td></tr>
+              <tr class="regression-row"><td>Unacknowledged Alerts</td><td>1</td><td>0</td><td>+1</td><td>Alert fatigue risk</td></tr>
+              <tr class="regression-row"><td>Unresolved Alerts</td><td>3</td><td>1</td><td>+2</td><td>Operational backlog</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Top Recurring Alerts -->
+      <section class="section">
+        <h2>Top Recurring Alerts</h2>
+        <div class="table-wrapper">
+          <table class="data-table alerts-table">
+            <thead>
+              <tr>
+                <th>Alert Rule</th>
+                <th>Count</th>
+                <th>Affected Service</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>feed-timeout</td><td><span class="count-badge high">11</span></td><td>feed-api</td><td><span class="status-pill active">Active</span></td></tr>
+              <tr><td>db-connection-pool</td><td><span class="count-badge medium">5</span></td><td>posts-api</td><td><span class="status-pill resolved">Resolved</span></td></tr>
+              <tr><td>pubsub-backlog</td><td><span class="count-badge medium">4</span></td><td>feed-indexer</td><td><span class="status-pill active">Active</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Cost Snapshot & Risks -->
+      <section class="section cost-risks">
+        <div class="two-col">
+          <div class="card cost-card">
+            <h2>Cost Snapshot</h2>
+            <div class="cost-metrics">
+              <div class="cost-row">
+                <span class="cost-label">Total Weekly Cost</span>
+                <span class="cost-value">$124,300</span>
+              </div>
+              <div class="cost-row">
+                <span class="cost-label">WoW Change</span>
+                <span class="cost-value up">+8%</span>
+              </div>
+              <div class="cost-row">
+                <span class="cost-label">Top Driver</span>
+                <span class="cost-value">Compute Engine (41%)</span>
+              </div>
+            </div>
+          </div>
+          <div class="card risks-card">
+            <h2>Top Risks for Next Week</h2>
+            <ul class="metric-list">
+              <li><span class="bullet yellow"></span>Recurring feed-timeout → ranking/cache dependency</li>
+              <li><span class="bullet yellow"></span>Rising memory → OOM risk if traffic spikes</li>
+              <li><span class="bullet yellow"></span>Cost trend → possible over-provisioning</li>
+              <li><span class="bullet yellow"></span>P0/P1 test failures could block releases</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Team Footprint -->
+      <section class="section">
+        <h2>Team Footprint Overview</h2>
+        <div class="footprint-grid">
+          <div class="footprint-card">
+            <h3>Backend Services</h3>
+            <p class="count">6</p>
+            <p class="notes">community-api, posts-api, reactions-api, feed-api, moderation-api, auth-adapter</p>
+          </div>
+          <div class="footprint-card">
+            <h3>Background Workers (GCP)</h3>
+            <p class="count">4</p>
+            <p class="notes">feed-indexer, notification-worker, moderation-worker, cleanup-worker</p>
+          </div>
+          <div class="footprint-card">
+            <h3>Frontend Apps</h3>
+            <p class="count">2</p>
+            <p class="notes">Communities Web, Communities Mobile Web</p>
+          </div>
+          <div class="footprint-card">
+            <h3>Datastores</h3>
+            <p class="count">2</p>
+            <p class="notes">Redis (cache), MongoDB (primary)</p>
+          </div>
+          <div class="footprint-card">
+            <h3>Pub/Sub Topics</h3>
+            <p class="count">5</p>
+            <p class="notes">post-events, reaction-events, moderation-events, feed-events, user-events</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recommended Focus Areas -->
+      <section class="section focus-areas">
+        <h2>Recommended Focus Areas</h2>
+        <ol class="focus-list">
+          <li>Fix P0 integration test failure (feed load under cache-miss)</li>
+          <li>Address P1 integration test warnings in moderation and reactions flows</li>
+          <li>Investigate recurring feed-timeout alerts and cache hotspots</li>
+          <li>Optimize memory and concurrency limits for moderation-worker</li>
+          <li>Review autoscaling for feed-api + feed-indexer workers</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="dashboard-footer">
+      <p>Platform Health Check • Week 32 • Generated for Revex – Communities</p>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
